@@ -1,6 +1,4 @@
-using PaymentGateway.Api.Enums;
-
-namespace PaymentGateway.Api.Models;
+namespace PaymentGateway.Domain;
 
 public record Payment(
     Guid Id,

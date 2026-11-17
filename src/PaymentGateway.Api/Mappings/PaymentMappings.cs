@@ -1,8 +1,9 @@
 using PaymentGateway.Api.Models.Responses;
+using PaymentGateway.Domain;
 
-namespace PaymentGateway.Api.Models;
+namespace PaymentGateway.Api.Mappings;
 
-public static class PaymentExtensions
+public static class PaymentMappings
 {
     extension(Payment payment)
     {

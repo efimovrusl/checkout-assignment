@@ -6,10 +6,10 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
 using PaymentGateway.Api.Controllers;
-using PaymentGateway.Api.Enums;
-using PaymentGateway.Api.Models;
 using PaymentGateway.Api.Models.Responses;
-using PaymentGateway.Api.Services;
+using PaymentGateway.Application;
+using PaymentGateway.Domain;
+using PaymentGateway.Infrastructure;
 
 namespace PaymentGateway.Api.Tests;
 
@@ -35,13 +35,13 @@ public class PaymentsControllerTests
             "GBP",
             _random.Next(1, 10000));
 
-        var paymentsRepository = new PaymentsRepository();
-        paymentsRepository.Add(payment);
+        var paymentsRepository = new InMemoryPaymentsRepository();
+        await paymentsRepository.AddAsync(payment, CancellationToken.None);
 
         var webApplicationFactory = new WebApplicationFactory<PaymentsController>();
         var client = webApplicationFactory.WithWebHostBuilder(builder =>
             builder.ConfigureServices(services => ((ServiceCollection)services)
-                .AddSingleton(paymentsRepository)))
+                .AddSingleton<IPaymentsRepository>(paymentsRepository)))
             .CreateClient();
 
         // Act
@@ -68,13 +68,13 @@ public class PaymentsControllerTests
             "GBP",
             100);
 
-        var paymentsRepository = new PaymentsRepository();
-        paymentsRepository.Add(payment);
+        var paymentsRepository = new InMemoryPaymentsRepository();
+        await paymentsRepository.AddAsync(payment, CancellationToken.None);
 
         var webApplicationFactory = new WebApplicationFactory<PaymentsController>();
         var client = webApplicationFactory.WithWebHostBuilder(builder =>
             builder.ConfigureServices(services => ((ServiceCollection)services)
-                .AddSingleton(paymentsRepository)))
+                .AddSingleton<IPaymentsRepository>(paymentsRepository)))
             .CreateClient();
 
         // Act
