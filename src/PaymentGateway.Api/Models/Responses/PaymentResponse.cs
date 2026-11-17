@@ -2,7 +2,7 @@
 
 namespace PaymentGateway.Api.Models.Responses;
 
-public class GetPaymentResponse
+public class PaymentResponse
 {
     public required Guid Id { get; set; }
     public required PaymentStatus Status { get; set; }

@@ -4,31 +4,16 @@ using PaymentGateway.Domain;
 
 namespace PaymentGateway.Application;
 
-public class PaymentsService : IPaymentsService
+public class PaymentsService(
+    IPaymentsRepository paymentsRepository,
+    ProcessPaymentCommandValidator validator,
+    IBankClient bankClient,
+    IIdempotencyStore idempotencyStore,
+    ILogger<PaymentsService> logger) : IPaymentsService
 {
-    private readonly IPaymentsRepository _paymentsRepository;
-    private readonly ProcessPaymentCommandValidator _validator;
-    private readonly IBankClient _bankClient;
-    private readonly IIdempotencyStore _idempotencyStore;
-    private readonly ILogger<PaymentsService> _logger;
-
-    public PaymentsService(
-        IPaymentsRepository paymentsRepository,
-        ProcessPaymentCommandValidator validator,
-        IBankClient bankClient,
-        IIdempotencyStore idempotencyStore,
-        ILogger<PaymentsService> logger)
-    {
-        _paymentsRepository = paymentsRepository;
-        _validator = validator;
-        _bankClient = bankClient;
-        _idempotencyStore = idempotencyStore;
-        _logger = logger;
-    }
-
     public Task<Payment?> GetPaymentAsync(Guid id, CancellationToken cancellationToken)
     {
-        return _paymentsRepository.GetAsync(id, cancellationToken);
+        return paymentsRepository.GetAsync(id, cancellationToken);
     }
 
     public async Task<ProcessPaymentResult> ProcessPaymentAsync(
@@ -36,7 +21,7 @@ public class PaymentsService : IPaymentsService
         string? idempotencyKey,
         CancellationToken cancellationToken)
     {
-        var errors = _validator.Validate(command);
+        var errors = validator.Validate(command);
 
         if (errors.Count > 0)
         {
@@ -45,7 +30,7 @@ public class PaymentsService : IPaymentsService
 
         if (idempotencyKey is not null)
         {
-            var claim = await _idempotencyStore.ClaimAsync(
+            var claim = await idempotencyStore.ClaimAsync(
                 idempotencyKey,
                 IdempotencyFingerprint.Compute(command),
                 cancellationToken);
@@ -53,7 +38,7 @@ public class PaymentsService : IPaymentsService
             switch (claim)
             {
                 case IdempotencyClaim.Completed completed:
-                    var original = await _paymentsRepository.GetAsync(completed.PaymentId, cancellationToken)
+                    var original = await paymentsRepository.GetAsync(completed.PaymentId, cancellationToken)
                         ?? throw new InvalidOperationException("idempotent payment is missing");
 
                     return new ProcessPaymentResult.Processed(original, Replayed: true);
@@ -79,27 +64,27 @@ public class PaymentsService : IPaymentsService
 
         try
         {
-            authorization = await _bankClient.AuthorizeAsync(bankRequest, cancellationToken);
+            authorization = await bankClient.AuthorizeAsync(bankRequest, cancellationToken);
         }
         catch (AcquiringBankException ex)
         {
             if (ex.OutcomeUnknown)
             {
-                _logger.LogWarning(ex, "payment outcome unknown");
+                logger.LogWarning(ex, "payment outcome unknown");
 
                 if (idempotencyKey is not null)
                 {
-                    await _idempotencyStore.MarkUnknownAsync(idempotencyKey, cancellationToken);
+                    await idempotencyStore.MarkUnknownAsync(idempotencyKey, cancellationToken);
                 }
 
                 return new ProcessPaymentResult.OutcomeUnknown();
             }
 
-            _logger.LogWarning(ex, "acquiring bank unavailable");
+            logger.LogWarning(ex, "acquiring bank unavailable");
 
             if (idempotencyKey is not null)
             {
-                await _idempotencyStore.ReleaseAsync(idempotencyKey, cancellationToken);
+                await idempotencyStore.ReleaseAsync(idempotencyKey, cancellationToken);
             }
 
             return new ProcessPaymentResult.BankUnavailable();
@@ -114,11 +99,11 @@ public class PaymentsService : IPaymentsService
             bankRequest.Currency,
             bankRequest.Amount);
 
-        await _paymentsRepository.AddAsync(payment, cancellationToken);
+        await paymentsRepository.AddAsync(payment, cancellationToken);
 
         if (idempotencyKey is not null)
         {
-            await _idempotencyStore.CompleteAsync(idempotencyKey, payment.Id, cancellationToken);
+            await idempotencyStore.CompleteAsync(idempotencyKey, payment.Id, cancellationToken);
         }
 
         return new ProcessPaymentResult.Processed(payment);

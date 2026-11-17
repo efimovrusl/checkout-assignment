@@ -25,7 +25,7 @@ public static class PaymentEndpoints
         }
     }
 
-    private static async Task<Results<Ok<GetPaymentResponse>, NotFound>> GetPaymentAsync(
+    private static async Task<Results<Ok<PaymentResponse>, NotFound>> GetPaymentAsync(
         Guid id,
         IPaymentsService paymentsService,
         CancellationToken cancellationToken)
@@ -37,7 +37,7 @@ public static class PaymentEndpoints
             : TypedResults.Ok(payment.ToResponse());
     }
 
-    private static async Task<Results<CreatedAtRoute<PostPaymentResponse>, ValidationProblem, ProblemHttpResult>> ProcessPaymentAsync(
+    private static async Task<Results<CreatedAtRoute<PaymentResponse>, ValidationProblem, ProblemHttpResult>> ProcessPaymentAsync(
         PostPaymentRequest request,
         [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey,
         HttpResponse httpResponse,
@@ -64,7 +64,7 @@ public static class PaymentEndpoints
         return result switch
         {
             ProcessPaymentResult.Processed processed => TypedResults.CreatedAtRoute(
-                processed.Payment.ToPostResponse(),
+                processed.Payment.ToResponse(),
                 "GetPayment",
                 new { id = processed.Payment.Id }),
             ProcessPaymentResult.Conflict => TypedResults.Problem(

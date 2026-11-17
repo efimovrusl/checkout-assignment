@@ -45,7 +45,7 @@ public class PaymentEndpointsTests
 
         // Act
         var response = await client.GetAsync($"/api/payments/{payment.Id}");
-        var paymentResponse = await response.Content.ReadFromJsonAsync<GetPaymentResponse>(JsonOptions);
+        var paymentResponse = await response.Content.ReadFromJsonAsync<PaymentResponse>(JsonOptions);
         
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
