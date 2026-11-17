@@ -37,7 +37,7 @@ public static class PaymentEndpoints
             : TypedResults.Ok(payment.ToResponse());
     }
 
-    private static async Task<Results<CreatedAtRoute<PaymentResponse>, ValidationProblem, ProblemHttpResult>> ProcessPaymentAsync(
+    private static async Task<Results<CreatedAtRoute<PaymentResponse>, Ok<PaymentResponse>, ValidationProblem, ProblemHttpResult>> ProcessPaymentAsync(
         PostPaymentRequest request,
         [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey,
         HttpResponse httpResponse,
@@ -63,6 +63,7 @@ public static class PaymentEndpoints
 
         return result switch
         {
+            ProcessPaymentResult.Processed { Replayed: true } replayed => TypedResults.Ok(replayed.Payment.ToResponse()),
             ProcessPaymentResult.Processed processed => TypedResults.CreatedAtRoute(
                 processed.Payment.ToResponse(),
                 "GetPayment",

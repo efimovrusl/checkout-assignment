@@ -113,7 +113,7 @@ public class ProcessPaymentEndpointTests
 
         // Assert
         Assert.Equal(HttpStatusCode.Created, first.StatusCode);
-        Assert.Equal(HttpStatusCode.Created, second.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
         Assert.Equal(firstJson.RootElement.GetProperty("id").GetGuid(), secondJson.RootElement.GetProperty("id").GetGuid());
         Assert.False(first.Headers.Contains("Idempotent-Replayed"));
         Assert.Equal("true", Assert.Single(second.Headers.GetValues("Idempotent-Replayed")));
