@@ -5,7 +5,6 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
-using PaymentGateway.Api.Controllers;
 using PaymentGateway.Api.Models.Responses;
 using PaymentGateway.Application;
 using PaymentGateway.Domain;
@@ -13,7 +12,7 @@ using PaymentGateway.Infrastructure;
 
 namespace PaymentGateway.Api.Tests;
 
-public class PaymentsControllerTests
+public class PaymentEndpointsTests
 {
     private readonly Random _random = new();
 
@@ -38,14 +37,14 @@ public class PaymentsControllerTests
         var paymentsRepository = new InMemoryPaymentsRepository();
         await paymentsRepository.AddAsync(payment, CancellationToken.None);
 
-        var webApplicationFactory = new WebApplicationFactory<PaymentsController>();
+        var webApplicationFactory = new WebApplicationFactory<Program>();
         var client = webApplicationFactory.WithWebHostBuilder(builder =>
-            builder.ConfigureServices(services => ((ServiceCollection)services)
+            builder.ConfigureServices(services => services
                 .AddSingleton<IPaymentsRepository>(paymentsRepository)))
             .CreateClient();
 
         // Act
-        var response = await client.GetAsync($"/api/Payments/{payment.Id}");
+        var response = await client.GetAsync($"/api/payments/{payment.Id}");
         var paymentResponse = await response.Content.ReadFromJsonAsync<GetPaymentResponse>(JsonOptions);
         
         // Assert
@@ -71,14 +70,14 @@ public class PaymentsControllerTests
         var paymentsRepository = new InMemoryPaymentsRepository();
         await paymentsRepository.AddAsync(payment, CancellationToken.None);
 
-        var webApplicationFactory = new WebApplicationFactory<PaymentsController>();
+        var webApplicationFactory = new WebApplicationFactory<Program>();
         var client = webApplicationFactory.WithWebHostBuilder(builder =>
-            builder.ConfigureServices(services => ((ServiceCollection)services)
+            builder.ConfigureServices(services => services
                 .AddSingleton<IPaymentsRepository>(paymentsRepository)))
             .CreateClient();
 
         // Act
-        var response = await client.GetAsync($"/api/Payments/{payment.Id}");
+        var response = await client.GetAsync($"/api/payments/{payment.Id}");
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
 
         // Assert
@@ -92,11 +91,11 @@ public class PaymentsControllerTests
     public async Task Returns404IfPaymentNotFound()
     {
         // Arrange
-        var webApplicationFactory = new WebApplicationFactory<PaymentsController>();
+        var webApplicationFactory = new WebApplicationFactory<Program>();
         var client = webApplicationFactory.CreateClient();
         
         // Act
-        var response = await client.GetAsync($"/api/Payments/{Guid.NewGuid()}");
+        var response = await client.GetAsync($"/api/payments/{Guid.NewGuid()}");
         
         // Assert
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
