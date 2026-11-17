@@ -10,7 +10,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddApplication().AddInfrastructure();
+builder.Services.AddApplication().AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 
