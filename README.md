@@ -1,18 +1,31 @@
-# Instructions for candidates
+# Payment gateway
 
-This is the .NET version of the Payment Gateway challenge. If you haven't already read this [README.md](https://github.com/cko-recruitment/) on the details of this exercise, please do so now. 
+An API that lets a merchant take card payments through an acquiring bank and look them up later. It validates the request, rejects bad input without calling the bank, asks the bank (a Mountebank simulator) to authorize, and stores the outcome in memory. Only the last four card digits are kept. Merchant auth, real storage, refunds and retries are out of scope.
 
-## Template structure
-```
-src/
-    PaymentGateway.Api - a skeleton ASP.NET Core Web API
-test/
-    PaymentGateway.Api.Tests - an empty xUnit test project
-imposters/ - contains the bank simulator configuration. Don't change this
+## Run
 
-.editorconfig - don't change this. It ensures a consistent set of rules for submissions when reformatting code
-docker-compose.yml - configures the bank simulator
-PaymentGateway.sln
+```bash
+docker compose up --build
 ```
 
-Feel free to change the structure of the solution, use a different test library etc.
+- API: http://localhost:5050 (swagger at /swagger)
+- health: http://localhost:5050/health
+- Aspire dashboard: http://127.0.0.1:18888
+
+## Try it
+
+```bash
+curl -i -X POST http://localhost:5050/api/payments \
+  -H 'Content-Type: application/json' \
+  -d '{"cardNumber":"2222405343248877","expiryMonth":4,"expiryYear":2030,"currency":"GBP","amount":100,"cvv":"123"}'
+```
+
+Then GET the `Location` from the response. Card ending odd: Authorized, even: Declined, 0: bank down (502). Invalid input: 400 Rejected.
+
+## Test
+
+```bash
+dotnet test
+```
+
+No docker needed, the bank is faked.
