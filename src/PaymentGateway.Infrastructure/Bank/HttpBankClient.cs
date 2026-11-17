@@ -31,7 +31,7 @@ internal sealed class HttpBankClient(HttpClient httpClient) : IBankClient
 
             if (result is null)
             {
-                throw new AcquiringBankException("The acquiring bank returned an empty response.");
+                throw new AcquiringBankException("The acquiring bank returned an empty response.", outcomeUnknown: true);
             }
 
             var code = string.IsNullOrEmpty(result.AuthorizationCode) ? null : result.AuthorizationCode;
@@ -40,15 +40,17 @@ internal sealed class HttpBankClient(HttpClient httpClient) : IBankClient
         }
         catch (HttpRequestException exception)
         {
-            throw new AcquiringBankException("The acquiring bank could not be reached.", exception);
+            var neverReached = exception.HttpRequestError is HttpRequestError.ConnectionError or HttpRequestError.NameResolutionError;
+
+            throw new AcquiringBankException("The acquiring bank could not be reached.", exception, outcomeUnknown: !neverReached);
         }
         catch (JsonException exception)
         {
-            throw new AcquiringBankException("The acquiring bank returned an unreadable response.", exception);
+            throw new AcquiringBankException("The acquiring bank returned an unreadable response.", exception, outcomeUnknown: true);
         }
         catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new AcquiringBankException("The acquiring bank did not respond in time.", exception);
+            throw new AcquiringBankException("The acquiring bank did not respond in time.", exception, outcomeUnknown: true);
         }
     }
 

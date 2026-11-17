@@ -76,6 +76,7 @@ public class HttpBankClientTests
             () => client.AuthorizeAsync(Request, CancellationToken.None));
 
         // Assert
+        Assert.False(exception.OutcomeUnknown);
         Assert.Contains(((int)statusCode).ToString(), exception.Message);
         Assert.DoesNotContain(Request.CardNumber, exception.Message);
         Assert.DoesNotContain(Request.Cvv, exception.Message);
@@ -109,9 +110,10 @@ public class HttpBankClientTests
 
         // Act
         var act = () => client.AuthorizeAsync(Request, CancellationToken.None);
+        var exception = await Assert.ThrowsAsync<AcquiringBankException>(act);
 
         // Assert
-        await Assert.ThrowsAsync<AcquiringBankException>(act);
+        Assert.True(exception.OutcomeUnknown);
     }
 
     [Fact]
@@ -146,9 +148,10 @@ public class HttpBankClientTests
 
         // Act
         var act = () => client.AuthorizeAsync(Request, CancellationToken.None);
+        var exception = await Assert.ThrowsAsync<AcquiringBankException>(act);
 
         // Assert
-        await Assert.ThrowsAsync<AcquiringBankException>(act);
+        Assert.True(exception.OutcomeUnknown);
     }
 
     private static HttpBankClient CreateClient(HttpMessageHandler handler, TimeSpan? timeout = null)

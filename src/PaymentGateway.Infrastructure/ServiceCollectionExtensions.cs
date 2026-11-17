@@ -30,6 +30,7 @@ public static class ServiceCollectionExtensions
             });
 
             services.AddSingleton<IPaymentsRepository, InMemoryPaymentsRepository>();
+            services.AddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
 
             return services;
         }

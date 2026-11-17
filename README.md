@@ -1,6 +1,6 @@
 # Payment gateway
 
-An API that lets a merchant take card payments through an acquiring bank and look them up later. It validates the request, rejects bad input without calling the bank, asks the bank (a Mountebank simulator) to authorize, and stores the outcome in memory. Only the last four card digits are kept. Merchant auth, real storage, refunds and retries are out of scope.
+An API that lets a merchant take card payments through an acquiring bank and look them up later. It validates the request, rejects bad input without calling the bank, asks the bank (a Mountebank simulator) to authorize, and stores the outcome in memory. Only the last four card digits are kept. Merchant auth, real storage and refunds are out of scope.
 
 ## Run
 
@@ -21,6 +21,8 @@ curl -i -X POST http://localhost:5050/api/payments \
 ```
 
 Then GET the `Location` from the response. Card ending odd: Authorized, even: Declined, 0: bank down (502). Invalid input: 400 Rejected.
+
+Send an `Idempotency-Key` header to make retries safe: the same key and body return the original payment, a different body gets 422. If the bank times out the outcome is unknown. The bank simulator is static and has no way to look up a past payment, so retries with that key are refused instead of risking a second charge. A bank with a payment lookup would let the gateway check and then retry safely.
 
 ## Test
 

@@ -79,6 +79,80 @@ public class ProcessPaymentEndpointTests
         Assert.Equal(HttpStatusCode.BadGateway, response.StatusCode);
     }
 
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, 2)]
+    public async Task RetriesWithSameKeyCallBankOnlyWhenOutcomeIsKnown(bool outcomeUnknown, int expectedBankCalls)
+    {
+        // Arrange
+        var bank = new FakeBankClient(new AcquiringBankException("down", outcomeUnknown));
+        var client = CreateClient(bank);
+
+        // Act
+        var first = await PostWithKeyAsync(client, "key-3", ValidRequest);
+        var second = await PostWithKeyAsync(client, "key-3", ValidRequest);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadGateway, first.StatusCode);
+        Assert.Equal(HttpStatusCode.BadGateway, second.StatusCode);
+        Assert.Equal(expectedBankCalls, bank.CallCount);
+    }
+
+    [Fact]
+    public async Task ReplaysOriginalPaymentForSameIdempotencyKeyAndBody()
+    {
+        // Arrange
+        var bank = new FakeBankClient(new BankAuthorization(true, "code"));
+        var client = CreateClient(bank);
+
+        // Act
+        var first = await PostWithKeyAsync(client, "key-1", ValidRequest);
+        var second = await PostWithKeyAsync(client, "key-1", ValidRequest);
+        using var firstJson = JsonDocument.Parse(await first.Content.ReadAsStringAsync());
+        using var secondJson = JsonDocument.Parse(await second.Content.ReadAsStringAsync());
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, second.StatusCode);
+        Assert.Equal(firstJson.RootElement.GetProperty("id").GetGuid(), secondJson.RootElement.GetProperty("id").GetGuid());
+        Assert.False(first.Headers.Contains("Idempotent-Replayed"));
+        Assert.Equal("true", Assert.Single(second.Headers.GetValues("Idempotent-Replayed")));
+        Assert.Equal(1, bank.CallCount);
+    }
+
+    [Fact]
+    public async Task Returns422WhenIdempotencyKeyIsReusedWithDifferentBody()
+    {
+        // Arrange
+        var bank = new FakeBankClient(new BankAuthorization(true, "code"));
+        var client = CreateClient(bank);
+        var otherRequest = new
+        {
+            cardNumber = "2222405343248877",
+            expiryMonth = 4,
+            expiryYear = DateTime.UtcNow.Year + 1,
+            currency = "GBP",
+            amount = 200,
+            cvv = "123"
+        };
+
+        // Act
+        await PostWithKeyAsync(client, "key-2", ValidRequest);
+        var response = await PostWithKeyAsync(client, "key-2", otherRequest);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Equal(1, bank.CallCount);
+    }
+
+    private static Task<HttpResponseMessage> PostWithKeyAsync(HttpClient client, string key, object body)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/payments") { Content = JsonContent.Create(body) };
+        request.Headers.Add("Idempotency-Key", key);
+
+        return client.SendAsync(request);
+    }
+
     private static HttpClient CreateClient(FakeBankClient bank)
     {
         return new WebApplicationFactory<Program>()
@@ -96,11 +170,13 @@ public class ProcessPaymentEndpointTests
 
         public FakeBankClient(Exception failure) => _failure = failure;
 
-        public bool WasCalled { get; private set; }
+        public int CallCount { get; private set; }
+
+        public bool WasCalled => CallCount > 0;
 
         public Task<BankAuthorization> AuthorizeAsync(BankPaymentRequest request, CancellationToken cancellationToken)
         {
-            WasCalled = true;
+            CallCount++;
 
             return _failure is null ? Task.FromResult(_answer!) : Task.FromException<BankAuthorization>(_failure);
         }

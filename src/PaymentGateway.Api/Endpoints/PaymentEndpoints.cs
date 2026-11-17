@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 
 using PaymentGateway.Api.Mappings;
 using PaymentGateway.Api.Models.Requests;
@@ -9,6 +10,8 @@ namespace PaymentGateway.Api.Endpoints;
 
 public static class PaymentEndpoints
 {
+    private const int MaxIdempotencyKeyLength = 64;
+
     extension(IEndpointRouteBuilder app)
     {
         public IEndpointRouteBuilder MapPaymentEndpoints()
@@ -36,10 +39,27 @@ public static class PaymentEndpoints
 
     private static async Task<Results<CreatedAtRoute<PostPaymentResponse>, ValidationProblem, ProblemHttpResult>> ProcessPaymentAsync(
         PostPaymentRequest request,
+        [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey,
+        HttpResponse httpResponse,
         IPaymentsService paymentsService,
         CancellationToken cancellationToken)
     {
-        var result = await paymentsService.ProcessPaymentAsync(request.ToCommand(), cancellationToken);
+        if (idempotencyKey is { Length: > MaxIdempotencyKeyLength })
+        {
+            return TypedResults.ValidationProblem(
+                new Dictionary<string, string[]>
+                {
+                    ["idempotencyKey"] = [$"must be at most {MaxIdempotencyKeyLength} characters"]
+                },
+                title: "payment rejected");
+        }
+
+        var result = await paymentsService.ProcessPaymentAsync(request.ToCommand(), idempotencyKey, cancellationToken);
+
+        if (result is ProcessPaymentResult.Processed { Replayed: true })
+        {
+            httpResponse.Headers["Idempotent-Replayed"] = "true";
+        }
 
         return result switch
         {
@@ -47,6 +67,15 @@ public static class PaymentEndpoints
                 processed.Payment.ToPostResponse(),
                 "GetPayment",
                 new { id = processed.Payment.Id }),
+            ProcessPaymentResult.Conflict => TypedResults.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "a request with this idempotency key is in progress"),
+            ProcessPaymentResult.OutcomeUnknown => TypedResults.Problem(
+                statusCode: StatusCodes.Status502BadGateway,
+                title: "payment outcome unknown, the card may have been charged; do not retry with a new key"),
+            ProcessPaymentResult.KeyReused => TypedResults.Problem(
+                statusCode: StatusCodes.Status422UnprocessableEntity,
+                title: "idempotency key reused with a different request"),
             ProcessPaymentResult.Rejected rejected => TypedResults.ValidationProblem(
                 rejected.Errors.ToDictionary(e => e.Key, e => e.Value),
                 title: "payment rejected"),
