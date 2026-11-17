@@ -19,5 +19,16 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - Bank__BaseUrl=http://bank_simulator:8080
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire_dashboard:18889
+      - OTEL_SERVICE_NAME=payment-gateway
     depends_on:
       - bank_simulator
+      - aspire_dashboard
+
+  aspire_dashboard:
+    container_name: aspire_dashboard
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:13.6.5
+    ports:
+      - "127.0.0.1:18888:18888"
+    environment:
+      - ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true

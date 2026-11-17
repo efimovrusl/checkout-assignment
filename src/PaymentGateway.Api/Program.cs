@@ -1,10 +1,13 @@
 using System.Text.Json.Serialization;
 
 using PaymentGateway.Api.Endpoints;
+using PaymentGateway.Api.Observability;
 using PaymentGateway.Application;
 using PaymentGateway.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.AddObservability();
 
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
@@ -19,6 +22,7 @@ builder.Services.AddProblemDetails(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddApplication().AddInfrastructure(builder.Configuration);
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
@@ -37,5 +41,6 @@ app.UseStatusCodePages();
 app.UseHttpsRedirection();
 
 app.MapPaymentEndpoints();
+app.MapHealthChecks("/health");
 
 app.Run();
