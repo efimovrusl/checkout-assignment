@@ -8,7 +8,8 @@ An API that lets a merchant take card payments through an acquiring bank and loo
 docker compose up --build
 ```
 
-- API: http://localhost:5050 (swagger at /swagger)
+- API: http://localhost:5050
+- Swagger: http://localhost:5050/swagger
 - health: http://localhost:5050/health
 - Aspire dashboard: http://127.0.0.1:18888
 
